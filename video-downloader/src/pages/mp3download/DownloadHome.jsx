@@ -9,7 +9,7 @@ export default function DownloadHome() {
     const [loading,setLoading] = useState(false);
     const [url, setUrl] = useState("");
     const [data, setData] = useState(null);
-    
+    console.log("loading:",loading);
     const onclickurl = async()=>{
         setBtnLoad(true);
         setData(null);
@@ -80,7 +80,7 @@ export default function DownloadHome() {
                 <tr className='align-middle'>
                 <th scope="row">{index+1}</th>
                 <td><img src={item?.thumbnail} width={150}/></td>
-                <td width={400}>{item?.title}{item?.url}</td>
+                <td width={400}>{item?.title}<br/>URL :  {item?.url}</td>
                 <td className='table-btns'>
                     <button className='btn btn-primary table-btns' onClick={()=>onDownload(item.url,"mp3")}>{loading?<div className="spinner-border" role="status"></div>:"mp3"}</button>
                     <button className='btn btn-primary table-btns' onClick={()=>onDownload(item.url,"mp4")}>mp4</button>
