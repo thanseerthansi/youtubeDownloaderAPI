@@ -29,7 +29,7 @@ class youtube_info(APIView):
                 items = []
                 for video_url in first_20_urls:
                     try:
-                        yt = YouTube(video_url)
+                        yt = YouTube(video_url, use_po_token=True)
                         items.append({
                             "title": yt.title,
                             "thumbnail": yt.thumbnail_url,
@@ -54,7 +54,7 @@ class youtube_info(APIView):
 
         
             # else: single video
-            yt = YouTube(url)
+            yt = YouTube(url, use_po_token=True)
             item = {
                 "title": yt.title,
                 "thumbnail": yt.thumbnail_url,
