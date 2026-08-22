@@ -1,1 +1,1 @@
-web: gunicorn youtubedownloader_backend.wsgi
+web: export PATH="$HOME/node_bin/bin:$PATH" && gunicorn youtubedownloader_backend.wsgi

@@ -21,11 +21,7 @@ class youtube_info(APIView):
                 "quiet": True,
                 "extract_flat": "in_playlist",  # fast extraction without downloading
                 "skip_download": True,
-                "extractor_args": {
-                    "youtube": {
-                        "player_client": ["android", "ios", "web", "mweb"]
-                    }
-                },
+                "js_runtimes": {"node": {}},
             }
 
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -129,11 +125,7 @@ class download(APIView):
                 "quiet": True,
                 "noplaylist": True,
                 "concurrent_fragment_downloads": 5,
-                "extractor_args": {
-                    "youtube": {
-                        "player_client": ["android", "ios", "web", "mweb"]
-                    }
-                },
+                "js_runtimes": {"node": {}},
             }
 
             if media_type == "mp3":
