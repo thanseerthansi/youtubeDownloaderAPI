@@ -1,173 +1,227 @@
 import React, { useState } from 'react'
 import { ApiCall } from '../../service/ApiCall';
 import { Baseurl, Url } from '../../constants/Urls';
-import axios from 'axios';
-// import yt from "ytdl-core";
 
 export default function DownloadHome() {
-    const [btnLoad, setBtnLoad] = useState(false);
-    const [loading,setLoading] = useState(false);
-    const [url, setUrl] = useState("");
-    const [data, setData] = useState(null);
-    console.log("loading:",loading);
-    const onclickurl = async()=>{
-        setBtnLoad(true);
-        setData(null);
-        let info = await ApiCall("get",Url.info,null,{url:url});
-        if(info.status){
-            setData(info?.message?.items);   
-        }
-        setBtnLoad(false);
+  const [btnLoad, setBtnLoad] = useState(false);
+  const [url, setUrl] = useState("");
+  const [data, setData] = useState(null);
+  const [playlistMeta, setPlaylistMeta] = useState(null);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [downloadingMap, setDownloadingMap] = useState({});
+
+  const handleSearch = async (e) => {
+    if (e) e.preventDefault();
+    if (!url.trim()) {
+      setErrorMsg("Please enter a YouTube video or playlist link.");
+      return;
     }
-//     const onDownload = async (videourl,type,imgurl,title) => {
-//         setLoading(true);
-//     //    let url = url
-//        console.log("url",imgurl)
-//     // console.log("Starting native browser download for:", videourl, "with format:", type);
-//         try {
-//     const response = await fetch(imgurl);
-//   const blob = await response.blob();
-//   const blobUrl = window.URL.createObjectURL(blob);
 
-//   const imlink = document.createElement("a");
-//   imlink.href = blobUrl;
-//   imlink.download = title;
-//   imlink.click();
+    setBtnLoad(true);
+    setErrorMsg("");
+    setData(null);
+    setPlaylistMeta(null);
 
-//   window.URL.revokeObjectURL(blobUrl);
-//         const url = Baseurl + Url.download + `?url=${videourl}&type=${type}`;
-//         // window.open(url,"_blank");
-//         const link = document.createElement("a");
-//         link.href = url;
-//         // don’t set link.download here → let server provide Malayalam title
-//         document.body.appendChild(link);
-//         link.click();
-//         document.body.removeChild(link);
-//         setLoading(false);
-//     ;
-//   } catch (err) {
-//     setLoading(false);
-//     console.error("Download error:", err);
-//   }
-// };
-const onDownload = async (videourl, type, imgurl, title) => {
-  setLoading(true);
+    const info = await ApiCall("get", Url.info, null, { url: url.trim() });
+    
+    if (info.status && info.message) {
+      if (info.message.type === "playlist") {
+        setPlaylistMeta({
+          title: info.message.title,
+          totalCount: info.message.total_count,
+          fetchedCount: info.message.fetched_count
+        });
+      }
+      setData(info.message.items || []);
+    } else {
+      setErrorMsg(info.error || "Failed to fetch video information. Please verify the URL.");
+    }
+    setBtnLoad(false);
+  };
 
-  try {
-    // 👉 Fetch image
-    const response = await fetch(imgurl);
-    const blob = await response.blob();
+  const handleDownload = (videoUrl, type, videoId) => {
+    const key = `${videoId}_${type}`;
+    setDownloadingMap((prev) => ({ ...prev, [key]: true }));
 
-    // 👉 Create image object
-    const img = new Image();
-    const imgUrlObject = URL.createObjectURL(blob);
-
-    img.src = imgUrlObject;
-
-    await new Promise((resolve) => {
-      img.onload = resolve;
-    });
-
-    // 👉 Create canvas (400x400)
-    const canvas = document.createElement("canvas");
-    canvas.width = 400;
-    canvas.height = 400;
-
-    const ctx = canvas.getContext("2d");
-
-    // Optional: white background (important for PNG → JPG cases)
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, 400, 400);
-
-    // 👉 Draw resized image
-    ctx.drawImage(img, 0, 0, 400, 400);
-
-    // 👉 Convert canvas to blob
-    const resizedBlob = await new Promise((resolve) =>
-      canvas.toBlob(resolve, "image/jpeg", 0.95)
-    );
-
-    const blobUrl = URL.createObjectURL(resizedBlob);
-
-    // 👉 Download resized image
-    const imlink = document.createElement("a");
-    imlink.href = blobUrl;
-    imlink.download = `${title}.jpg`;
-    imlink.click();
-
-    URL.revokeObjectURL(blobUrl);
-    URL.revokeObjectURL(imgUrlObject);
-
-    // 👉 Video download (your existing logic)
-    const url =
-      Baseurl + Url.download + `?url=${videourl}&type=${type}`;
-
+    const downloadEndpoint = `${Baseurl}${Url.download}?url=${encodeURIComponent(videoUrl)}&type=${type}`;
+    
     const link = document.createElement("a");
-    link.href = url;
+    link.href = downloadEndpoint;
+    link.setAttribute("download", "");
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
 
-    setLoading(false);
-  } catch (err) {
-    setLoading(false);
-    console.error("Download error:", err);
-  }
-};
+    // Reset download state after 3 seconds
+    setTimeout(() => {
+      setDownloadingMap((prev) => ({ ...prev, [key]: false }));
+    }, 3000);
+  };
+
   return (
-    
-    <div className='container'>
-        <div className='main-DownloadHome'>
-            <h1>Welcome to Youtube Downloader</h1>
-            <h3>Download your favourite videos in mp3 and mp4 format</h3>
+    <div className='downloader-container'>
+      <div className='hero-section'>
+        <div className='badge-pill'>
+          <span className='sparkle-icon'>✨</span> Fast & Free YouTube Converter
         </div>
-        <div className='search-main'>
-            <input className='search-input'  onChange={(e)=>setUrl(e.target.value)}  type="text" placeholder='Enter youtube video link here...' />
-            <button className={`download-btn $`} disabled = {btnLoad} onClick={()=>onclickurl()} > { btnLoad? "Loading...":"Search"}</button>
+        <h1 className='hero-title'>
+          Download YouTube Videos & Audio <span className='title-gradient'>Instantly</span>
+        </h1>
+        <p className='hero-subtitle'>
+          Extract high quality MP3 audio and crisp MP4 videos from YouTube videos and playlists with zero hassle.
+        </p>
+      </div>
 
-            
-
+      <form className='search-form' onSubmit={handleSearch}>
+        <div className='search-box'>
+          <div className='search-icon'>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          <input
+            className='search-input'
+            value={url}
+            onChange={(e) => {
+              setUrl(e.target.value);
+              if (errorMsg) setErrorMsg("");
+            }}
+            type="text"
+            placeholder="Paste YouTube link (e.g. https://www.youtube.com/watch?v=...)"
+          />
+          {url && (
+            <button
+              type="button"
+              className='clear-btn'
+              onClick={() => {
+                setUrl("");
+                setErrorMsg("");
+              }}
+            >
+              ✕
+            </button>
+          )}
+          <button className='search-btn' disabled={btnLoad} type="submit">
+            {btnLoad ? (
+              <span className='btn-spinner-group'>
+                <span className='spinner-sm'></span> Fetching...
+              </span>
+            ) : (
+              "Search"
+            )}
+          </button>
         </div>
-        <div className='text-info mt-4'>
-            <p>Note : This tool only works for youtube video links. Please enter a valid youtube video link.</p>
-        </div>
-        <div className='table-section   mt-5'>
-            {btnLoad ?
-            <div class="d-flex justify-content-center">
-  <div className="spinner-border" role="status">
-  </div>
-    <span class="sr-only mt-1">Loading...</span>
-</div>
-:
-            <table className="table scrollable-table " >
-                 <thead >
-                <tr>
-                <th scope="col">#</th>
-                <th scope="col">Thumbnail</th>
-                <th scope="col">Heading</th>
-                <th scope="col">Download</th>
-                </tr>
-            </thead>
-                {data && data.map((item, index)=>(
-                    
-                    
-            <tbody key={index}>
-                <tr className='align-middle'>
-                <th scope="row">{index+1}</th>
-                <td><img src={item?.thumbnail} width={150}/></td>
-                <td width={400}>{item?.title}<br/>URL :  {item?.url}</td>
-                <td className='table-btns'>
-                    <button className='btn btn-primary table-btns' onClick={()=>onDownload(item.url,"mp3",item?.thumbnail,item?.title)}>{loading?<div className="spinner-border" role="status"></div>:"mp3"}</button>
-                    <button className='btn btn-primary table-btns' onClick={()=>onDownload(item.url,"mp4",item?.thumbnail,item?.title)}>mp4</button>
-                </td>
-                </tr>
+      </form>
 
-            </tbody>
-                ))}
-           
-            </table>
-}
-            </div>
+      {errorMsg && (
+        <div className='error-banner'>
+          <span className='error-icon'>⚠️</span>
+          <span>{errorMsg}</span>
+        </div>
+      )}
+
+      {playlistMeta && (
+        <div className='playlist-header'>
+          <div className='playlist-info'>
+            <span className='playlist-badge'>Playlist</span>
+            <h2 className='playlist-title'>{playlistMeta.title}</h2>
+          </div>
+          <span className='playlist-count'>
+            Showing {playlistMeta.fetchedCount} of {playlistMeta.totalCount} items
+          </span>
+        </div>
+      )}
+
+      {btnLoad && (
+        <div className='skeleton-loader'>
+          <div className='loader-spinner'></div>
+          <p>Extracting video information from YouTube...</p>
+        </div>
+      )}
+
+      {data && data.length > 0 && !btnLoad && (
+        <div className='results-grid'>
+          {data.map((item, index) => {
+            const videoId = item.videoId || index;
+            const isMp3Loading = downloadingMap[`${videoId}_mp3`];
+            const isMp4Loading = downloadingMap[`${videoId}_mp4`];
+
+            return (
+              <div key={videoId} className='video-card'>
+                <div className='card-thumbnail-wrapper'>
+                  <img
+                    src={item.thumbnail || "https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=500&auto=format&fit=crop&q=60"}
+                    alt={item.title}
+                    className='card-thumbnail'
+                    loading="lazy"
+                    onError={(e) => {
+                      e.target.src = "https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=500&auto=format&fit=crop&q=60";
+                    }}
+                  />
+                  <div className='thumbnail-badge'>#{index + 1}</div>
+                </div>
+                <div className='card-content'>
+                  <h3 className='video-title' title={item.title}>
+                    {item.title}
+                  </h3>
+                  <a
+                    href={item.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className='video-url-link'
+                  >
+                    {item.url}
+                  </a>
+
+                  <div className='card-actions'>
+                    <button
+                      className={`download-btn btn-mp3 ${isMp3Loading ? 'is-loading' : ''}`}
+                      onClick={() => handleDownload(item.url, "mp3", videoId)}
+                      disabled={isMp3Loading}
+                    >
+                      {isMp3Loading ? (
+                        <span className='btn-spinner-group'>
+                          <span className='spinner-sm'></span> Starting...
+                        </span>
+                      ) : (
+                        <>
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M9 18V5l12-2v13" />
+                            <circle cx="6" cy="18" r="3" />
+                            <circle cx="18" cy="16" r="3" />
+                          </svg>
+                          Download MP3
+                        </>
+                      )}
+                    </button>
+
+                    <button
+                      className={`download-btn btn-mp4 ${isMp4Loading ? 'is-loading' : ''}`}
+                      onClick={() => handleDownload(item.url, "mp4", videoId)}
+                      disabled={isMp4Loading}
+                    >
+                      {isMp4Loading ? (
+                        <span className='btn-spinner-group'>
+                          <span className='spinner-sm'></span> Starting...
+                        </span>
+                      ) : (
+                        <>
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M23 7l-7 5 7 5V7z" />
+                            <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                          </svg>
+                          Download MP4
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
-  )
+  );
 }
+

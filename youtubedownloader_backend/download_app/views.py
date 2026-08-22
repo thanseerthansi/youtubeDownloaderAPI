@@ -1,16 +1,14 @@
-# views.py
-import re
-from pytubefix import YouTube, Playlist
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from django.http import StreamingHttpResponse
-from pytubefix.cli import on_progress
-import requests  # Import the requests library for streaming
-from django.http import FileResponse
+# from django.http import FileResponse
 import os
-import re, urllib.parse ,subprocess
-import io
-# @api_view(["GET"])
+import re
+import shutil
+import tempfile
+import urllib.parse
+from django.http import StreamingHttpResponse
+from rest_framework.response import Response
+from rest_framework.views import APIView
+import yt_dlp
+
 class youtube_info(APIView):
     def get(self, request, *args, **kwargs):
         print("youtube_info request received")
@@ -19,98 +17,195 @@ class youtube_info(APIView):
             return Response({"error": "No URL provided"}, status=400)
 
         try:
-            # url = clean_youtube_url(raw_url)
-            url = raw_url  # Use raw URL directly for pytubefix
-
-            # Playlist handling
-            if "list=" in url:
-                pl = Playlist(url)
-                first_20_urls = pl.video_urls[:20]
-                items = []
-                for video_url in first_20_urls:
-                    try:
-                        yt = YouTube(video_url, use_po_token=False)
-                        items.append({
-                            "title": yt.title,
-                            "thumbnail": yt.thumbnail_url,
-                            "videoId": yt.video_id,
-                            "url": yt.watch_url
-                        })
-                    except Exception as e:
-                        # Instead of crashing, just keep the raw URL
-                        items.append({
-                            "error": str(e),
-                            "videoId": video_url,  # fallback: extract id from url
-                            "title": "Unavailable Video",
-                            "thumbnail": None
-                        })
-                return Response({
-                    "type": "playlist",
-                    "title": pl.title,
-                    "total_count": len(pl.video_urls),
-                    "fetched_count": len(items),
-                    "items": items
-                }, status=200)
-
-        
-            # else: single video
-            yt = YouTube(url, use_po_token=False)
-            item = {
-                "title": yt.title,
-                "thumbnail": yt.thumbnail_url,
-                "videoId": yt.video_id,
-                "url":yt.watch_url
+            ydl_opts = {
+                "quiet": True,
+                "extract_flat": "in_playlist",  # fast extraction without downloading
+                "skip_download": True,
+                "extractor_args": {
+                    "youtube": {
+                        "player_client": ["android", "ios", "web", "mweb"]
+                    }
+                },
             }
-            return Response({
-                "type": "video",
-                "title": yt.title,
-                "total_count": 1,
-                "fetched_count": 1,
-                "items": [item]
-            }, status=200)
+
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(raw_url, download=False)
+
+            # Check if URL is a Playlist
+            if "entries" in info:
+                entries = list(info.get("entries", []))[:20]
+                items = []
+                for entry in entries:
+                    if entry:
+                        video_id = entry.get("id")
+                        thumbnail = entry.get("thumbnail")
+                        if not thumbnail and entry.get("thumbnails"):
+                            thumbnail = entry.get("thumbnails")[-1].get("url")
+                        if not thumbnail and video_id:
+                            thumbnail = f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg"
+
+                        items.append(
+                            {
+                                "title": entry.get("title", "Unavailable Video"),
+                                "thumbnail": thumbnail,
+                                "videoId": video_id,
+                                "url": entry.get("url") or entry.get("webpage_url") or f"https://www.youtube.com/watch?v={video_id}",
+                            }
+                        )
+
+                return Response(
+                    {
+                        "type": "playlist",
+                        "title": info.get("title", "Playlist"),
+                        "total_count": len(info.get("entries", [])),
+                        "fetched_count": len(items),
+                        "items": items,
+                    },
+                    status=200,
+                )
+
+            # Single video
+            thumbnail = info.get("thumbnail")
+            if not thumbnail and info.get("thumbnails"):
+                thumbnail = info.get("thumbnails")[-1].get("url")
+            if not thumbnail and info.get("id"):
+                thumbnail = f"https://i.ytimg.com/vi/{info.get('id')}/hqdefault.jpg"
+
+            item = {
+                "title": info.get("title", "YouTube Video"),
+                "thumbnail": thumbnail,
+                "videoId": info.get("id"),
+                "url": info.get("webpage_url", raw_url),
+            }
+
+            return Response(
+                {
+                    "type": "video",
+                    "title": info.get("title"),
+                    "total_count": 1,
+                    "fetched_count": 1,
+                    "items": [item],
+                },
+                status=200,
+            )
 
         except Exception as e:
-            return Response({"error": str(e), "url_used": url, "raw_url": raw_url}, status=400)
+            import traceback
+
+            print("YOUTUBE ERROR:", str(e))
+            traceback.print_exc()
+            return Response(
+                {"error": str(e), "raw_url": raw_url},
+                status=400,
+            )
+
+def file_iterator_with_cleanup(file_path, temp_dir, chunk_size=8192):
+    """
+    Yields chunks of the file and removes the temp directory 
+    when the transfer finishes or client disconnects.
+    """
+    try:
+        with open(file_path, "rb") as f:
+            while chunk := f.read(chunk_size):
+                yield chunk
+    finally:
+        # Automatically clean up the temp directory after streaming
+        if os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir, ignore_errors=True)
 
 class download(APIView):
     def get(self, request, *args, **kwargs):
-        print("download request received")
-       
         url = request.GET.get("url")
-        type = request.GET.get("type", "mp4")
-        print(f"Requested type: {type}")
-        print(f"Download request for URL: {url}")
+        media_type = request.GET.get("type", "mp4").lower()
+
         if not url:
             return Response({"error": "No URL provided"}, status=400)
-        yt = YouTube(url)
-        title = yt.title  # keep Malayalam/Unicode title
-        thumbnail = yt.thumbnail_url
-        safe_title = re.sub(r'[^a-zA-Z0-9_\-\.]', '_', yt.title)[:50]
-        # stream = yt.streams.get_highest_resolution()
-        encoded_title = urllib.parse.quote(title)
-        if type == "mp3":
-            stream = yt.streams.filter(only_audio=True).first()
-            buffer = io.BytesIO()
-            stream.stream_to_buffer(buffer)
-            buffer.seek(0)
-            response = StreamingHttpResponse(buffer, content_type="audio/mpeg")
-            response["Content-Disposition"] = f'attachment; filename="{safe_title}.mp3"'
-            response["Content-Disposition"] += f"; filename*=UTF-8''{encoded_title}.mp3"
-            response["X-Audio-Title"] = title
 
+        temp_dir = tempfile.mkdtemp()
 
-           
-        else:
-            stream = yt.streams.filter(progressive=True, file_extension='mp4').order_by('resolution').desc().first()
-            buffer = io.BytesIO()
-            stream.stream_to_buffer(buffer)
-            buffer.seek(0) 
+        try:
+            base_opts = {
+                "outtmpl": os.path.join(temp_dir, "%(title)s.%(ext)s"),
+                "quiet": True,
+                "noplaylist": True,
+                "concurrent_fragment_downloads": 5,
+                "extractor_args": {
+                    "youtube": {
+                        "player_client": ["android", "ios", "web", "mweb"]
+                    }
+                },
+            }
 
-            response = StreamingHttpResponse(buffer, content_type="video/mp4")
-            response["Content-Disposition"] = f'attachment; filename="{safe_title}.mp4"'
-        # Add Unicode filename with RFC 5987 encoding
+            if media_type == "mp3":
+                ydl_opts = {
+                    **base_opts,
+                    "format": "bestaudio/best",
+                    "postprocessors": [
+                        {
+                            "key": "FFmpegExtractAudio",
+                            "preferredcodec": "mp3",
+                            "preferredquality": "128",
+                        }
+                    ],
+                }
+                content_type = "audio/mpeg"
+                ext = "mp3"
+            else:
+                ydl_opts = {
+                    **base_opts,
+                    "format": "best[ext=mp4][vcodec^=avc1]/best[ext=mp4]/best",
+                }
+                content_type = "video/mp4"
+                ext = "mp4"
+
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=True)
+                title = info.get("title", "download") if info else "download"
+                thumbnail = info.get("thumbnail", "") if info else ""
+
+            # Locate downloaded file in temp_dir reliably
+            downloaded_file = None
+            files = [os.path.join(temp_dir, f) for f in os.listdir(temp_dir) if os.path.isfile(os.path.join(temp_dir, f))]
+            if files:
+                ext_files = [f for f in files if f.endswith(f".{ext}")]
+                if ext_files:
+                    downloaded_file = ext_files[0]
+                else:
+                    downloaded_file = files[0]
+
+            if not downloaded_file or not os.path.exists(downloaded_file):
+                raise Exception("Downloaded file not found on server.")
+
+            safe_title = re.sub(r"[^a-zA-Z0-9_\-\.]", "_", title)[:50]
+            encoded_title = urllib.parse.quote(title)
+
+            # Stream chunks of 512KB for faster local transfer
+            response = StreamingHttpResponse(
+                file_iterator_with_cleanup(downloaded_file, temp_dir, chunk_size=512 * 1024),
+                content_type=content_type,
+            )
+            response["Content-Disposition"] = (
+                f'attachment; filename="{safe_title}.{ext}"; '
+                f"filename*=UTF-8''{encoded_title}.{ext}"
+            )
+            response["Access-Control-Expose-Headers"] = "Content-Disposition, X-Audio-Title, X-Video-Title, X-Thumbnail-Url"
+
+            if os.path.exists(downloaded_file):
+                response["Content-Length"] = os.path.getsize(downloaded_file)
+
+            if media_type == "mp3":
+                response["X-Audio-Title"] = safe_title
+            else:
+                response["X-Video-Title"] = safe_title
+
+            response["X-Thumbnail-Url"] = thumbnail
+            return response
+
+        except Exception as e:
+            if os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir, ignore_errors=True)
+            import traceback
+            traceback.print_exc()
+            return Response({"error": str(e)}, status=400)
+
         
-            response["Content-Disposition"] += f"; filename*=UTF-8''{encoded_title}.mp4"
-            response["X-Video-Title"] = title
-        response["X-Thumbnail-Url"] = thumbnail
-        return response

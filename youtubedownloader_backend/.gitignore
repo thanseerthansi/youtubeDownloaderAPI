@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+*$py.class
+*.sqlite3
+*.log
+temp/
+downloads/
+*.mp3
+*.mp4
+.env
