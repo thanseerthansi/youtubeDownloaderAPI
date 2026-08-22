@@ -4,10 +4,42 @@ import re
 import shutil
 import tempfile
 import urllib.parse
+import requests
+from mutagen.mp3 import MP3
+from mutagen.id3 import ID3, APIC, TIT2, error
 from django.http import StreamingHttpResponse
 from rest_framework.response import Response
 from rest_framework.views import APIView
 import yt_dlp
+
+def embed_thumbnail_and_metadata(mp3_file_path, thumbnail_url, title):
+    try:
+        audio = MP3(mp3_file_path, ID3=ID3)
+        try:
+            audio.add_tags()
+        except error:
+            pass
+
+        if title:
+            audio.tags.add(TIT2(encoding=3, text=title))
+
+        if thumbnail_url:
+            resp = requests.get(thumbnail_url, timeout=10)
+            if resp.status_code == 200:
+                audio.tags.add(
+                    APIC(
+                        encoding=3,
+                        mime="image/jpeg",
+                        type=3,  # Cover (front)
+                        desc="Cover",
+                        data=resp.content,
+                    )
+                )
+        audio.save()
+        print(f"Successfully embedded thumbnail into MP3: {mp3_file_path}")
+    except Exception as e:
+        print(f"Failed to embed thumbnail into MP3: {e}")
+
 
 class youtube_info(APIView):
     def get(self, request, *args, **kwargs):
@@ -167,6 +199,10 @@ class download(APIView):
 
             if not downloaded_file or not os.path.exists(downloaded_file):
                 raise Exception("Downloaded file not found on server.")
+
+            # If MP3 audio, embed thumbnail and title metadata into the MP3 file
+            if media_type == "mp3":
+                embed_thumbnail_and_metadata(downloaded_file, thumbnail, title)
 
             safe_title = re.sub(r"[^a-zA-Z0-9_\-\.]", "_", title)[:50]
             encoded_title = urllib.parse.quote(title)

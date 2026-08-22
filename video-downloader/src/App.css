@@ -221,16 +221,78 @@
   font-size: 1.25rem;
 }
 
+/* Controls Bar & Switches */
+.controls-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 1.25rem 1.75rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.switch-group {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.switch-label {
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #000000; /* Sharp Black Text */
+}
+
+.switch-container {
+  display: flex;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  padding: 3px;
+  gap: 4px;
+}
+
+.switch-option {
+  background: transparent;
+  border: none;
+  color: #000000; /* Sharp Black Text for switches */
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 0.45rem 0.9rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.switch-option:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: #000000;
+}
+
+.switch-option.active {
+  background: #0f172a; /* Dark Active Pill */
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
 /* Playlist Header */
 .playlist-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 16px;
   padding: 1.25rem 1.75rem;
   margin-bottom: 2rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
 }
 
 .playlist-info {
@@ -240,11 +302,11 @@
 }
 
 .playlist-badge {
-  background: rgba(99, 102, 241, 0.2);
-  color: #818cf8;
-  border: 1px solid rgba(99, 102, 241, 0.4);
+  background: rgba(99, 102, 241, 0.15);
+  color: #4f46e5;
+  border: 1px solid rgba(99, 102, 241, 0.3);
   font-size: 0.75rem;
-  font-weight: 700;
+  font-weight: 800;
   text-transform: uppercase;
   padding: 0.25rem 0.75rem;
   border-radius: 9999px;
@@ -253,13 +315,14 @@
 .playlist-title {
   font-family: 'Outfit', sans-serif;
   font-size: 1.25rem;
-  font-weight: 700;
-  color: #ffffff;
+  font-weight: 800;
+  color: #000000; /* Sharp Black Text */
 }
 
 .playlist-count {
   font-size: 0.875rem;
-  color: var(--text-muted);
+  font-weight: 600;
+  color: #475569;
 }
 
 /* Skeleton & Loading */
@@ -312,21 +375,21 @@
 }
 
 .video-card {
-  background: var(--bg-card);
-  backdrop-filter: blur(12px);
-  border: 1px solid var(--border-color);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 20px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
   transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 .video-card:hover {
   transform: translateY(-4px);
-  border-color: rgba(255, 255, 255, 0.2);
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.4);
-  background: var(--bg-card-hover);
+  border-color: #cbd5e1;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.25);
+  background: #ffffff;
 }
 
 .card-thumbnail-wrapper {
@@ -375,9 +438,9 @@
 .video-title {
   font-family: 'Outfit', sans-serif;
   font-size: 1.05rem;
-  font-weight: 700;
+  font-weight: 800;
   line-height: 1.4;
-  color: #ffffff;
+  color: #000000; /* Sharp Black Text for Video Title */
   margin-bottom: 0.5rem;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -387,7 +450,7 @@
 
 .video-url-link {
   font-size: 0.8rem;
-  color: var(--text-muted);
+  color: #475569;
   text-decoration: none;
   white-space: nowrap;
   overflow: hidden;

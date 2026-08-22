@@ -9,6 +9,8 @@ export default function DownloadHome() {
   const [playlistMeta, setPlaylistMeta] = useState(null);
   const [errorMsg, setErrorMsg] = useState("");
   const [downloadingMap, setDownloadingMap] = useState({});
+  const [filterMode, setFilterMode] = useState("all"); // 'all', 'mp3', 'mp4'
+  const [compressMode, setCompressMode] = useState("128"); // '128' (Standard Compressed), '96' (High Compression)
 
   const handleSearch = async (e) => {
     if (e) e.preventDefault();
@@ -43,7 +45,7 @@ export default function DownloadHome() {
     const key = `${videoId}_${type}`;
     setDownloadingMap((prev) => ({ ...prev, [key]: true }));
 
-    const downloadEndpoint = `${Baseurl}${Url.download}?url=${encodeURIComponent(videoUrl)}&type=${type}`;
+    const downloadEndpoint = `${Baseurl}${Url.download}?url=${encodeURIComponent(videoUrl)}&type=${type}&quality=${compressMode}`;
     
     const link = document.createElement("a");
     link.href = downloadEndpoint;
@@ -68,7 +70,7 @@ export default function DownloadHome() {
           Download YouTube Videos & Audio <span className='title-gradient'>Instantly</span>
         </h1>
         <p className='hero-subtitle'>
-          Extract high quality MP3 audio and crisp MP4 videos from YouTube videos and playlists with zero hassle.
+          Extract compressed MP3 audio with embedded thumbnails & crisp MP4 videos from YouTube.
         </p>
       </div>
 
@@ -119,6 +121,56 @@ export default function DownloadHome() {
           <span>{errorMsg}</span>
         </div>
       )}
+
+      {/* Switches & Controls Section */}
+      <div className='controls-bar'>
+        <div className='switch-group'>
+          <span className='switch-label'>Format Filter:</span>
+          <div className='switch-container'>
+            <button
+              type="button"
+              className={`switch-option ${filterMode === 'all' ? 'active' : ''}`}
+              onClick={() => setFilterMode('all')}
+            >
+              All Formats
+            </button>
+            <button
+              type="button"
+              className={`switch-option ${filterMode === 'mp3' ? 'active' : ''}`}
+              onClick={() => setFilterMode('mp3')}
+            >
+              🎵 Audio (MP3)
+            </button>
+            <button
+              type="button"
+              className={`switch-option ${filterMode === 'mp4' ? 'active' : ''}`}
+              onClick={() => setFilterMode('mp4')}
+            >
+              🎬 Video (MP4)
+            </button>
+          </div>
+        </div>
+
+        <div className='switch-group'>
+          <span className='switch-label'>Audio Bitrate Compression:</span>
+          <div className='switch-container'>
+            <button
+              type="button"
+              className={`switch-option ${compressMode === '128' ? 'active' : ''}`}
+              onClick={() => setCompressMode('128')}
+            >
+              128 kbps (Standard)
+            </button>
+            <button
+              type="button"
+              className={`switch-option ${compressMode === '96' ? 'active' : ''}`}
+              onClick={() => setCompressMode('96')}
+            >
+              96 kbps (High Compress)
+            </button>
+          </div>
+        </div>
+      </div>
 
       {playlistMeta && (
         <div className='playlist-header'>
@@ -174,46 +226,50 @@ export default function DownloadHome() {
                   </a>
 
                   <div className='card-actions'>
-                    <button
-                      className={`download-btn btn-mp3 ${isMp3Loading ? 'is-loading' : ''}`}
-                      onClick={() => handleDownload(item.url, "mp3", videoId)}
-                      disabled={isMp3Loading}
-                    >
-                      {isMp3Loading ? (
-                        <span className='btn-spinner-group'>
-                          <span className='spinner-sm'></span> Starting...
-                        </span>
-                      ) : (
-                        <>
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M9 18V5l12-2v13" />
-                            <circle cx="6" cy="18" r="3" />
-                            <circle cx="18" cy="16" r="3" />
-                          </svg>
-                          Download MP3
-                        </>
-                      )}
-                    </button>
+                    {(filterMode === 'all' || filterMode === 'mp3') && (
+                      <button
+                        className={`download-btn btn-mp3 ${isMp3Loading ? 'is-loading' : ''}`}
+                        onClick={() => handleDownload(item.url, "mp3", videoId)}
+                        disabled={isMp3Loading}
+                      >
+                        {isMp3Loading ? (
+                          <span className='btn-spinner-group'>
+                            <span className='spinner-sm'></span> Starting...
+                          </span>
+                        ) : (
+                          <>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M9 18V5l12-2v13" />
+                              <circle cx="6" cy="18" r="3" />
+                              <circle cx="18" cy="16" r="3" />
+                            </svg>
+                            Download MP3 ({compressMode}k)
+                          </>
+                        )}
+                      </button>
+                    )}
 
-                    <button
-                      className={`download-btn btn-mp4 ${isMp4Loading ? 'is-loading' : ''}`}
-                      onClick={() => handleDownload(item.url, "mp4", videoId)}
-                      disabled={isMp4Loading}
-                    >
-                      {isMp4Loading ? (
-                        <span className='btn-spinner-group'>
-                          <span className='spinner-sm'></span> Starting...
-                        </span>
-                      ) : (
-                        <>
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M23 7l-7 5 7 5V7z" />
-                            <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-                          </svg>
-                          Download MP4
-                        </>
-                      )}
-                    </button>
+                    {(filterMode === 'all' || filterMode === 'mp4') && (
+                      <button
+                        className={`download-btn btn-mp4 ${isMp4Loading ? 'is-loading' : ''}`}
+                        onClick={() => handleDownload(item.url, "mp4", videoId)}
+                        disabled={isMp4Loading}
+                      >
+                        {isMp4Loading ? (
+                          <span className='btn-spinner-group'>
+                            <span className='spinner-sm'></span> Starting...
+                          </span>
+                        ) : (
+                          <>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M23 7l-7 5 7 5V7z" />
+                              <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                            </svg>
+                            Download MP4
+                          </>
+                        )}
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -224,4 +280,3 @@ export default function DownloadHome() {
     </div>
   );
 }
-
